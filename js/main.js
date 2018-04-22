@@ -349,6 +349,12 @@ class App extends React.Component {
     }
   }
 
+  reloadJsons = () => {
+    this.sendSocketMessage({
+      cmd: 'reload',
+    });
+  }
+
   deleteEnv = () => {
     this.sendSocketMessage({
       cmd: 'delete_env',
@@ -879,6 +885,17 @@ class App extends React.Component {
               onChange={this.selectEnv}
             />
           </div>
+          <button
+            data-toggle="tooltip"
+            title="Reload Environments"
+            data-placement="bottom"
+            className="btn btn-default"
+            disabled={!this.state.connected}
+            onClick={this.reloadJsons}>
+            <span
+               className="glyphicon glyphicon-refresh">
+            </span>
+          </button>
           <button
             data-toggle="tooltip"
             title="Clear Current Environment"

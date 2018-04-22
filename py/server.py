@@ -94,6 +94,23 @@ def serialize_env(state, eids, env_path=DEFAULT_ENV_PATH):
 def serialize_all(state, env_path=DEFAULT_ENV_PATH):
     serialize_env(state, list(state.keys()), env_path=env_path)
 
+def load_all(env_path):
+    state = {}
+    env_jsons = [i for i in os.listdir(env_path) if '.json' in i]
+
+    for env_json in env_jsons:
+        env_path_file = os.path.join(env_path, env_json)
+        env_data = tornado.escape.json_decode(open(env_path_file, 'r').read())
+        eid = env_json.replace('.json', '')
+        state[eid] = {'jsons': env_data['jsons'],
+                      'reload': env_data['reload']}
+
+    if 'main' not in state and 'main.json' not in env_jsons:
+        state['main'] = {'jsons': {}, 'reload': {}}
+        serialize_env(state, ['main'], env_path=env_path)
+
+    return state
+
 
 class Application(tornado.web.Application):
     def __init__(self, port=DEFAULT_PORT, env_path=DEFAULT_ENV_PATH):
@@ -102,21 +119,11 @@ class Application(tornado.web.Application):
         self.sources = {}
         self.env_path = env_path
         self.port = port
+        self.lastUpdate = time.time()
 
         # reload state
         ensure_dir_exists(env_path)
-        env_jsons = [i for i in os.listdir(env_path) if '.json' in i]
-
-        for env_json in env_jsons:
-            env_path_file = os.path.join(env_path, env_json)
-            env_data = tornado.escape.json_decode(open(env_path_file, 'r').read())
-            eid = env_json.replace('.json', '')
-            self.state[eid] = {'jsons': env_data['jsons'],
-                               'reload': env_data['reload']}
-
-        if 'main' not in self.state and 'main.json' not in env_jsons:
-            self.state['main'] = {'jsons': {}, 'reload': {}}
-            serialize_env(self.state, ['main'], env_path=self.env_path)
+        self.state = load_all(env_path)
 
         handlers = [
             (r"/events", PostHandler, {'app': self}),
@@ -133,6 +140,9 @@ class Application(tornado.web.Application):
             (r"/(.*)", IndexHandler, {'app': self}),
         ]
         super(Application, self).__init__(handlers, **tornado_settings)
+
+    def reloadState(self):
+        self.state = load_all(self.env_path)
 
 
 def broadcast_envs(handler, target_subs=None):
@@ -195,6 +205,7 @@ class SocketHandler(tornado.websocket.WebSocketHandler):
         self.subs = app.subs
         self.sources = app.sources
         self.broadcast_layouts()
+        self.app = app
 
     def check_origin(self, origin):
         return True
@@ -276,6 +287,9 @@ class SocketHandler(tornado.websocket.WebSocketHandler):
             environment = self.state[packet['eid']]
             packet['pane_data'] = environment['jsons'][packet['target']]
             send_to_sources(self, msg.get('data'))
+        elif cmd == 'reload':
+            logging.info('reload command')
+            self.app.reloadState()
 
     def on_close(self):
         if self in list(self.subs.values()):
@@ -837,7 +851,7 @@ class CompareHandler(BaseHandler):
         self.subs = app.subs
         self.sources = app.sources
         self.env_path = app.env_path
-
+        self.app = app
     # TODO fix get paths for compare
     # def get(self, eids):
     #     items = gather_envs(self.state)
@@ -851,11 +865,14 @@ class CompareHandler(BaseHandler):
     #     )
 
     def post(self, args):
+        self.app.lastUpdate = time.time()
+
         sid = tornado.escape.json_decode(
             tornado.escape.to_basestring(self.request.body)
         )['sid']
         compare_envs(self.state, args.split('+'), self.subs[sid],
                      self.env_path)
+
 
 
 class SaveHandler(BaseHandler):
@@ -879,6 +896,8 @@ class SaveHandler(BaseHandler):
             tornado.escape.to_basestring(self.request.body)
         )
         self.wrap_func(self, args)
+
+
 
 
 class DataHandler(BaseHandler):

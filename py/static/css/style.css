@@ -190,7 +190,7 @@ doesn't override our desire to make them non-interactable */
 }
 
 .rc-tree-select-selection--multiple .rc-tree-select-selection__clear {
-  right: 20px;
+  right: 5px;
 }
 
 .rc-tree-select-selection {

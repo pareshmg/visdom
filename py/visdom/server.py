@@ -113,13 +113,14 @@ def load_all(env_path):
 
 
 class Application(tornado.web.Application):
-    def __init__(self, port=DEFAULT_PORT, env_path=DEFAULT_ENV_PATH):
+    def __init__(self, port=DEFAULT_PORT, env_path=DEFAULT_ENV_PATH, readonly=False):
         self.state = {}
         self.subs = {}
         self.sources = {}
         self.env_path = env_path
         self.port = port
-        self.lastUpdate = time.time()
+        self.readonly = readonly
+
 
         # reload state
         ensure_dir_exists(env_path)
@@ -206,6 +207,7 @@ class SocketHandler(tornado.websocket.WebSocketHandler):
         self.sources = app.sources
         self.broadcast_layouts()
         self.app = app
+        self.readonly = app.readonly
 
     def check_origin(self, origin):
         return True
@@ -241,7 +243,7 @@ class SocketHandler(tornado.websocket.WebSocketHandler):
             'Opened new socket from ip: {}'.format(self.request.remote_ip))
 
         self.write_message(
-            json.dumps({'command': 'register', 'data': self.sid}))
+            json.dumps({'command': 'register', 'data': self.sid, 'readonly': self.readonly}))
         self.broadcast_layouts([self])
         broadcast_envs(self, [self])
 
@@ -250,6 +252,10 @@ class SocketHandler(tornado.websocket.WebSocketHandler):
         msg = tornado.escape.json_decode(tornado.escape.to_basestring(message))
 
         cmd = msg.get('cmd')
+
+        if self.readonly:
+            return
+
         if cmd == 'close':
             if 'data' in msg and 'eid' in msg:
                 logging.info('closing window {}'.format(msg['data']))
@@ -867,8 +873,6 @@ class CompareHandler(BaseHandler):
         )
 
     def post(self, args):
-        self.app.lastUpdate = time.time()
-
         sid = tornado.escape.json_decode(
             tornado.escape.to_basestring(self.request.body)
         )['sid']
@@ -1046,9 +1050,9 @@ def download_scripts(proxies=None, install_dir=None):
                     exc.reason, key))
 
 
-def start_server(port=DEFAULT_PORT, env_path=DEFAULT_ENV_PATH, print_func=None):
+def start_server(port=DEFAULT_PORT, env_path=DEFAULT_ENV_PATH, readonly=False, print_func=None):
     print("It's Alive!")
-    app = Application(port=port, env_path=env_path)
+    app = Application(port=port, env_path=env_path, readonly=readonly)
     app.listen(port, max_buffer_size=1024 ** 3)
     logging.info("Application Started")
     if "HOSTNAME" in os.environ:
@@ -1073,6 +1077,8 @@ def main(print_func=None):
     parser.add_argument('-logging_level', metavar='logger_level', default='INFO',
                         help='logging level (default = INFO). Can take logging '
                              'level name or int (example: 20)')
+    parser.add_argument('-readonly', help='start in readonly mode',
+                        action = 'store_true')
     FLAGS = parser.parse_args()
 
     try:
@@ -1087,7 +1093,7 @@ def main(print_func=None):
 
     logging.getLogger().setLevel(logging_level)
 
-    start_server(port=FLAGS.port, env_path=FLAGS.env_path, print_func=print_func)
+    start_server(port=FLAGS.port, env_path=FLAGS.env_path, readonly=FLAGS.readonly, print_func=print_func)
 
 
 if __name__ == "__main__":

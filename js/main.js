@@ -681,14 +681,14 @@ class App extends React.Component {
   }
 
   processPopState = (poppedState) => {
-      if (poppedState.state == null) {
-          poppedState.state = [];
-      }
-      this.setState({'envIDs': poppedState.state});
-      this.postForEnv(poppedState.state);
-      if (poppedState.state.length > 0) {
-          window.location.reload();
-      }
+    if (poppedState.state == null) {
+      poppedState.state = [];
+    }
+    this.setState({'envIDs': poppedState.state});
+    this.postForEnv(poppedState.state);
+    if (poppedState.state.length > 0) {
+      window.location.reload();
+    }
   }
 
   componentDidMount() {

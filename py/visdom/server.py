@@ -880,7 +880,6 @@ class CompareHandler(BaseHandler):
                      self.env_path)
 
 
-
 class SaveHandler(BaseHandler):
     def initialize(self, app):
         self.state = app.state
@@ -902,8 +901,6 @@ class SaveHandler(BaseHandler):
             tornado.escape.to_basestring(self.request.body)
         )
         self.wrap_func(self, args)
-
-
 
 
 class DataHandler(BaseHandler):

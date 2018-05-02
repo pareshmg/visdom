@@ -156,6 +156,7 @@ class App extends React.Component {
     this._pendingPanes.push(pane);
   }
 
+
   processBatchedPanes = () => {
     let newPanes = Object.assign({}, this.state.panes);
     let newLayout = this.state.layout.slice();
@@ -369,6 +370,9 @@ class App extends React.Component {
     else if (selectedNodes.length > 1) {
       history.pushState(selectedNodes, "compare", getUrl.protocol + '//' + getUrl.host + '/compare/' + selectedNodes.join('+'));
     }
+    else {
+      history.pushState(selectedNodes, "compare", getUrl.protocol + '//' + getUrl.host + '/env/main');
+    }
     this.postForEnv(selectedNodes);
   }
 
@@ -389,6 +393,8 @@ class App extends React.Component {
     this.sendSocketMessage({
       cmd: 'reload',
     });
+    this.selectEnv([]);
+    window.location.reload();
   }
 
   deleteEnv = () => {
@@ -681,14 +687,12 @@ class App extends React.Component {
   }
 
   processPopState = (poppedState) => {
+    var pstate = poppedState.state;
     if (poppedState.state == null) {
-      poppedState.state = [];
+      pstate = [];
     }
-    this.setState({'envIDs': poppedState.state});
-    this.postForEnv(poppedState.state);
-    if (poppedState.state.length > 0) {
-      window.location.reload();
-    }
+    this.setState({'envIDs': pstate});
+    this.postForEnv(pstate);
   }
 
   componentDidMount() {
@@ -936,17 +940,6 @@ class App extends React.Component {
           </div>
           <button
             data-toggle="tooltip"
-            title="Reload Environments"
-            data-placement="bottom"
-            className="btn btn-default"
-            disabled={!this.state.connected}
-            onClick={this.reloadJsons}>
-            <span
-               className="glyphicon glyphicon-refresh">
-            </span>
-          </button>
-          <button
-            data-toggle="tooltip"
             title="Clear Current Environment"
             data-placement="bottom"
             className="btn btn-default"
@@ -1117,7 +1110,7 @@ class App extends React.Component {
         {envModal}
         {viewModal}
         <div className="navbar-form navbar-default">
-          <span className="navbar-brand visdom-title">visdom</span>
+          <span className="navbar-brand visdom-title" onClick={this.reloadJsons}>visdom</span>
           <span className="vertical-line"></span>
           &nbsp;&nbsp;
           {envControls}
